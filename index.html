@@ -3,30 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Pedido / Inventario</title>
+<title>Pedido / Inventario / Vínculos</title>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/tesseract.min.js"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent;}
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-         margin: 0; background:#eef2f7; color:#222; padding-bottom:140px;}
+         margin: 0; background:#eef2f7; color:#222; padding-bottom:20px;}
   header { background:#1a3a6b; color:white; padding:10px 14px; position:sticky; top:0; z-index:50;
            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;}
   header h1 { font-size:16px; margin:0; }
-  .tabs { display:flex; gap:4px; }
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; }
   .tab { background:rgba(255,255,255,.15); color:white; border:none; padding:8px 12px; border-radius:6px;
          font-size:13px; font-weight:bold; cursor:pointer; }
   .tab.activo { background:white; color:#1a3a6b; }
   .panel { background:white; margin:10px; padding:14px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.08);}
   h3 { margin:0 0 10px 0; color:#1a3a6b; font-size:15px;}
   input, textarea, button, select { font-size:16px; padding:10px; box-sizing:border-box; font-family:inherit;}
-  input[type=text], input[type=number], textarea { width:100%; border:1px solid #ccc; border-radius:6px;}
+  input[type=text], input[type=number] { width:100%; border:1px solid #ccc; border-radius:6px;}
   button { background:#1a5fbf; color:white; border:none; border-radius:6px; cursor:pointer; padding:10px 16px; font-weight:bold;}
   button:active { opacity:.7; }
   button.rojo { background:#c0392b;} button.verde { background:#1e8449;}
-  button.gris { background:#7f8c8d;} 
+  button.gris { background:#7f8c8d;} button.morado { background:#8e44ad;}
   .fila { display:flex; gap:8px; align-items:stretch; }
   .fila input { flex:1; }
   table { width:100%; border-collapse:collapse; background:white; margin-top:8px;}
@@ -38,107 +36,150 @@
   .small { font-size:12px; color:#666;}
   .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold; color:white;}
   .G { background:#2e86c1;} .QT { background:#8e44ad;} .C5 { background:#e67e22;} .PZ { background:#7f8c8d;}
-  .toast { position:fixed; bottom:150px; left:50%; transform:translateX(-50%);
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
            background:#1e8449; color:white; padding:10px 18px; border-radius:8px;
            box-shadow:0 4px 12px rgba(0,0,0,.25); opacity:0; transition:opacity .25s;
            font-weight:bold; z-index:999; pointer-events:none; max-width:90%; text-align:center; font-size:14px;}
   .toast.show { opacity:1; }
-  .acciones-fijas { position:fixed; bottom:0; left:0; right:0; background:white; padding:10px;
-                    box-shadow:0 -2px 10px rgba(0,0,0,.1); display:flex; gap:8px; z-index:40;}
-  .acciones-fijas button { flex:1; padding:14px; font-size:15px;}
   .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:100; display:none;
               align-items:center; justify-content:center; padding:15px; overflow-y:auto;}
   .modal-bg.activo { display:flex;}
   .modal { background:white; border-radius:12px; padding:20px; width:100%; max-width:440px;}
   .modal h3 { margin-top:0;}
   .cant-grande { font-size:28px; text-align:center; font-weight:bold; padding:12px; width:100%; }
-  #reader { width:100%; border-radius:10px; overflow:hidden; background:#000; min-height:220px;}
-  #reader video { width:100% !important; height:auto !important; }
   .progreso { font-size:12px; color:#1a5fbf; font-weight:bold; margin-top:6px;}
   .diag { font-size:11px; color:#888; margin-top:4px;}
-  .scan-status { background:#f0f7ff; color:#1a3a6b; padding:8px 10px; border-radius:6px;
-                 font-size:12px; font-family:monospace; margin:8px 0; min-height:34px;
-                 word-break:break-all; }
   .aviso-guardado { background:#fff8e1; color:#7a5a00; padding:6px 10px; border-radius:6px;
                     font-size:12px; margin-top:8px; display:none;}
+  .info-vinculo { background:#e8f5e9; padding:12px; border-radius:8px; border-left:4px solid #1e8449;
+                  font-family:monospace; font-size:14px; margin:10px 0; word-break:break-all;}
+  .input-gigante { font-size:22px; font-weight:bold; text-align:center; padding:16px;
+                   background:#f9f9f9; border:2px dashed #1a5fbf; letter-spacing:1px;}
+  .input-gigante:focus { background:#fff; border-style:solid; outline:none;}
+  .tabla-scroll { max-height:400px; overflow-y:auto; border:1px solid #ddd; border-radius:6px; margin-top:8px;}
+  .tabla-scroll table { margin:0; }
+  .tabla-scroll th { position:sticky; top:0; z-index:2; }
+  .acciones-fijas { position:fixed; bottom:0; left:0; right:0; background:white; padding:10px;
+                    box-shadow:0 -2px 10px rgba(0,0,0,.1); display:flex; gap:8px; z-index:40;}
+  .acciones-fijas button { flex:1; padding:14px; font-size:15px;}
   @media(min-width:700px){
-    body { padding-bottom:20px; max-width:900px; margin:0 auto;}
+    body { max-width:900px; margin:0 auto; padding-bottom:20px;}
     .acciones-fijas { position:static; margin:10px; box-shadow:0 2px 6px rgba(0,0,0,.08); border-radius:10px;}
     header h1 { font-size:20px;}
+    body { padding-bottom:20px; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>📋 <span id="tituloModo">Pedido</span> Sahagún</h1>
+  <h1>📋 Sahagún</h1>
   <div class="tabs">
-    <button class="tab activo" id="tabPedido" onclick="cambiarModo('pedido')">🛒 Pedido</button>
-    <button class="tab" id="tabInventario" onclick="cambiarModo('inventario')">📦 Inventario</button>
+    <button class="tab activo" id="tabPedido" onclick="cambiarPestana('pedido')">🛒 Pedido</button>
+    <button class="tab" id="tabInventario" onclick="cambiarPestana('inventario')">📦 Inventario</button>
+    <button class="tab" id="tabVincular" onclick="cambiarPestana('vincular')">🔗 Vincular</button>
   </div>
 </header>
 
-<div class="panel">
-  <h3>1 · Catálogo (sube el PDF)</h3>
-  <input type="file" id="pdfInput" accept="application/pdf" onchange="procesarPDF(event)">
-  <div id="loader" class="progreso" style="display:none;"></div>
-  <div id="infoCat" class="small"></div>
-  <div id="diag" class="diag"></div>
-  <div class="aviso-guardado" id="avisoGuardado">💾 Catálogo guardado en este celular — no necesitas subir el PDF otra vez</div>
-  <div id="btnOlvidarWrap" style="margin-top:8px; display:none;">
-    <button class="gris" style="font-size:12px; padding:6px 10px;" onclick="olvidarCatalogo()">🗑 Olvidar catálogo guardado</button>
-  </div>
-</div>
-
-<div class="panel">
-  <h3>2 · Busca o escanea</h3>
-  <div class="fila">
-    <input type="text" id="busqueda" placeholder="SKU o descripción…"
-           oninput="buscar()" onkeydown="teclaBusqueda(event)">
-    <button onclick="abrirEscaner()" title="Escanear" style="background:#1e8449; padding:10px 14px; font-size:20px;">📷</button>
-  </div>
-  <p class="small" style="margin:6px 0 0 0;">
-    📷 Apunta al código de barras <b>o al código impreso</b> — la cámara busca en automático. En PC usa ↑↓ y Enter.
-  </p>
-  <div id="resultados"></div>
-</div>
-
-<div class="panel">
-  <h3>3 · <span id="tituloLista">Pedido</span> (<span id="contador">0</span>)</h3>
-  <div class="fila" style="margin-bottom:8px;">
-    <div style="flex:1;">
-      <label class="small">Tienda:</label>
-      <input type="text" id="tienda" value="SAHAGUN" oninput="guardarEstado()">
-    </div>
-    <div style="flex:1;">
-      <label class="small">Fecha:</label>
-      <input type="text" id="fecha" readonly>
+<!-- ================== PESTAÑA PEDIDO ================== -->
+<div id="pestanaPedido">
+  <div class="panel">
+    <h3>1 · Catálogo (sube el PDF)</h3>
+    <input type="file" id="pdfInput" accept="application/pdf" onchange="procesarPDF(event)">
+    <div id="loader" class="progreso" style="display:none;"></div>
+    <div id="infoCat" class="small"></div>
+    <div id="diag" class="diag"></div>
+    <div class="aviso-guardado" id="avisoGuardado">💾 Catálogo guardado en este dispositivo</div>
+    <div id="btnOlvidarWrap" style="margin-top:8px; display:none;">
+      <button class="gris" style="font-size:12px; padding:6px 10px;" onclick="olvidarCatalogo()">🗑 Olvidar catálogo</button>
     </div>
   </div>
-  <table id="tablaPedido">
-    <thead><tr><th>Rex</th><th>Descripción</th><th>Cant</th><th>UM</th><th></th></tr></thead>
-    <tbody></tbody>
-    <tfoot>
-      <tr><th colspan="2" style="text-align:right">Total:</th><th id="totalCant">0</th><th colspan="2" id="totalImp">$0</th></tr>
-    </tfoot>
-  </table>
-</div>
 
-<div class="acciones-fijas">
-  <button class="verde" onclick="exportarExcel()">📥 Exportar Excel</button>
-  <button class="rojo" onclick="limpiarPedido()">🗑 Limpiar</button>
-</div>
-
-<!-- Modal escáner -->
-<div class="modal-bg" id="modalEscaner">
-  <div class="modal">
-    <h3>📷 Escanear</h3>
-    <div id="reader"></div>
-    <div class="scan-status" id="scanStatus">Iniciando cámara…</div>
-    <p class="small" style="margin:0 0 8px 0;">
-      Apunta al código de barras o al texto del SKU. La cámara está buscando en automático.
+  <div class="panel">
+    <h3>2 · Busca o escanea</h3>
+    <div class="fila">
+      <input type="text" id="busqueda" placeholder="SKU, descripción o escanea…"
+             oninput="buscar()" onkeydown="teclaBusqueda(event)">
+    </div>
+    <p class="small" style="margin:6px 0 0 0;">
+      Con lector externo: pon el cursor aquí y dispara. Sin lector: escribe y usa ↑↓ + Enter.
     </p>
-    <button class="rojo" style="width:100%;" onclick="cerrarEscaner()">Cancelar</button>
+    <div id="resultados"></div>
+  </div>
+
+  <div class="panel">
+    <h3>3 · <span id="tituloLista">Pedido</span> (<span id="contador">0</span>)</h3>
+    <div class="fila" style="margin-bottom:8px;">
+      <div style="flex:1;">
+        <label class="small">Tienda:</label>
+        <input type="text" id="tienda" value="SAHAGUN" oninput="guardarEstado()">
+      </div>
+      <div style="flex:1;">
+        <label class="small">Fecha:</label>
+        <input type="text" id="fecha" readonly>
+      </div>
+    </div>
+    <table id="tablaPedido">
+      <thead><tr><th>Rex</th><th>Descripción</th><th>Cant</th><th>UM</th><th></th></tr></thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr><th colspan="2" style="text-align:right">Total:</th><th id="totalCant">0</th><th colspan="2" id="totalImp">$0</th></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="acciones-fijas">
+    <button class="verde" onclick="exportarExcel()">📥 Exportar Excel</button>
+    <button class="rojo" onclick="limpiarPedido()">🗑 Limpiar</button>
+  </div>
+</div>
+
+<!-- ================== PESTAÑA VINCULAR ================== -->
+<div id="pestanaVincular" style="display:none;">
+  <div class="panel">
+    <h3>🔗 Vincular código de barras ↔ SKU</h3>
+    <p class="small">
+      Escanea un código de barras con tu lector. Se guardará la relación con el SKU que elijas.
+      Después, cada vez que escanees ese código, el sistema lo reconocerá al instante.
+    </p>
+
+    <label class="small" style="display:block; margin-top:10px;">Paso 1 · Escanea el código de barras</label>
+    <input type="text" id="inputCodigo" class="input-gigante" placeholder="Esperando código…"
+           autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();capturarCodigo();}">
+    <div class="fila" style="margin-top:6px;">
+      <button class="gris" style="flex:1; font-size:12px;" onclick="limpiarInputCodigo()">🔄 Limpiar</button>
+    </div>
+
+    <div id="paso2Wrap" style="display:none; margin-top:14px;">
+      <div class="info-vinculo">
+        📦 Código capturado: <b id="codigoCapturado"></b>
+      </div>
+      <label class="small">Paso 2 · Busca el SKU del catálogo</label>
+      <input type="text" id="busquedaSku" placeholder="Escribe SKU o descripción…"
+             oninput="buscarParaVincular()" autocomplete="off">
+      <div id="resultadosSku" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>📋 Vínculos guardados (<span id="contadorVinculos">0</span>)</h3>
+
+    <div class="fila" style="margin-bottom:8px;">
+      <button class="verde" style="flex:1;" onclick="exportarVinculos()">📤 Exportar vínculos</button>
+      <button style="flex:1;" onclick="document.getElementById('inputImportar').click()">📥 Importar vínculos</button>
+      <input type="file" id="inputImportar" accept=".json" style="display:none" onchange="importarVinculos(event)">
+    </div>
+    <div class="fila" style="margin-bottom:8px;">
+      <button class="gris" style="flex:1; font-size:12px;" onclick="descargarCSVVinculos()">📄 Exportar como CSV (ver en Excel)</button>
+    </div>
+
+    <input type="text" id="filtroVinculos" placeholder="Filtrar vínculos…" oninput="renderVinculos()">
+    <div class="tabla-scroll">
+      <table id="tablaVinculos">
+        <thead><tr><th>Código de barras</th><th>SKU</th><th>Descripción</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -161,7 +202,8 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-const STORAGE_KEY = 'pedido_sahagun_v2';
+const KEY_STATE = 'sahagun_state_v3';
+const KEY_MAP   = 'sahagun_mappings_v1';
 
 let productos = [];
 let pedido = [];
@@ -169,74 +211,34 @@ let resultadosActuales = [];
 let indiceSel = -1;
 let productoSeleccionado = null;
 let modo = 'pedido';
-let html5QrCode = null;
-let ocrWorker = null;
-let ocrInterval = null;
-let ocrRunning = false;
-let scanEncontrado = false;
-let ultimoTextoOCR = '';
+let tabActual = 'pedido';
+let vinculos = {}; // { "7501076066851": "K07RR70-G", ... }
+let codigoPendiente = null;
 
 document.getElementById('fecha').value = new Date().toLocaleDateString('es-MX');
 
-/* ============ PERSISTENCIA ============ */
-function guardarEstado() {
-  try {
-    const data = {
-      productos,
-      pedido,
-      tienda: document.getElementById('tienda').value,
-      modo,
-      fecha: new Date().toISOString()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch(e) {
-    console.warn('No se pudo guardar:', e);
+/* ============ PESTAÑAS ============ */
+function cambiarPestana(t) {
+  tabActual = t;
+  ['pedido','inventario','vincular'].forEach(x => {
+    document.getElementById('tab' + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle('activo', x === t);
+  });
+  document.getElementById('pestanaPedido').style.display    = (t === 'pedido') ? 'block' : 'none';
+  document.getElementById('pestanaVincular').style.display = (t === 'vincular') ? 'block' : 'none';
+  if (t === 'inventario') {
+    modo = 'inventario';
+    document.getElementById('pestanaPedido').style.display = 'block';
+    document.getElementById('tituloLista').textContent = 'Conteo';
+    document.getElementById('tabInventario').classList.add('activo');
+    document.getElementById('tabPedido').classList.remove('activo');
+  } else if (t === 'pedido') {
+    modo = 'pedido';
+    document.getElementById('pestanaPedido').style.display = 'block';
+    document.getElementById('tituloLista').textContent = 'Pedido';
+  } else {
+    // vincular: enfocamos el input
+    setTimeout(() => document.getElementById('inputCodigo').focus(), 100);
   }
-}
-
-function cargarEstado() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const obj = JSON.parse(raw);
-    if (Array.isArray(obj.productos) && obj.productos.length) {
-      productos = obj.productos;
-      const fechaStr = obj.fecha ? new Date(obj.fecha).toLocaleString('es-MX') : '';
-      document.getElementById('infoCat').innerHTML = `✔ <b>${productos.length}</b> productos restaurados <span class="small">(${fechaStr})</span>`;
-      document.getElementById('avisoGuardado').style.display = 'block';
-      document.getElementById('btnOlvidarWrap').style.display = 'block';
-    }
-    if (Array.isArray(obj.pedido)) pedido = obj.pedido;
-    if (typeof obj.tienda === 'string') document.getElementById('tienda').value = obj.tienda;
-    if (obj.modo === 'inventario' || obj.modo === 'pedido') cambiarModo(obj.modo);
-    renderPedido();
-  } catch(e) {
-    console.warn('Error al restaurar:', e);
-  }
-}
-
-function olvidarCatalogo() {
-  if (!confirm('¿Olvidar el catálogo guardado? Tendrás que subir el PDF otra vez.')) return;
-  productos = [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const obj = raw ? JSON.parse(raw) : {};
-    obj.productos = [];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-  } catch(e) {}
-  document.getElementById('infoCat').textContent = '';
-  document.getElementById('diag').textContent = '';
-  document.getElementById('avisoGuardado').style.display = 'none';
-  document.getElementById('btnOlvidarWrap').style.display = 'none';
-}
-
-/* ============ MODO ============ */
-function cambiarModo(m) {
-  modo = m;
-  document.getElementById('tabPedido').classList.toggle('activo', m === 'pedido');
-  document.getElementById('tabInventario').classList.toggle('activo', m === 'inventario');
-  document.getElementById('tituloModo').textContent = m === 'pedido' ? 'Pedido' : 'Inventario';
-  document.getElementById('tituloLista').textContent = m === 'pedido' ? 'Pedido' : 'Conteo';
   guardarEstado();
 }
 
@@ -271,7 +273,7 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(window._toastT);
-  window._toastT = setTimeout(() => t.classList.remove('show'), 1800);
+  window._toastT = setTimeout(() => t.classList.remove('show'), 2000);
 }
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
@@ -287,6 +289,53 @@ function levenshtein(a, b) {
     }
   }
   return dp[n];
+}
+
+/* ============ Persistencia ============ */
+function guardarEstado() {
+  try {
+    localStorage.setItem(KEY_STATE, JSON.stringify({
+      productos, pedido, vinculos,
+      tienda: document.getElementById('tienda').value,
+      modo, fecha: new Date().toISOString()
+    }));
+    localStorage.setItem(KEY_MAP, JSON.stringify(vinculos));
+  } catch(e) { console.warn('No se pudo guardar:', e); }
+}
+function cargarEstado() {
+  try {
+    const raw = localStorage.getItem(KEY_STATE);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      if (Array.isArray(obj.productos)) {
+        productos = obj.productos;
+        if (productos.length) {
+          const fechaStr = obj.fecha ? new Date(obj.fecha).toLocaleString('es-MX') : '';
+          document.getElementById('infoCat').innerHTML = `✔ <b>${productos.length}</b> productos restaurados <span class="small">(${fechaStr})</span>`;
+          document.getElementById('avisoGuardado').style.display = 'block';
+          document.getElementById('btnOlvidarWrap').style.display = 'block';
+        }
+      }
+      if (Array.isArray(obj.pedido)) pedido = obj.pedido;
+      if (obj.vinculos && typeof obj.vinculos === 'object') vinculos = obj.vinculos;
+      if (typeof obj.tienda === 'string') document.getElementById('tienda').value = obj.tienda;
+      if (obj.modo === 'inventario') cambiarPestana('inventario');
+    } else {
+      const mapRaw = localStorage.getItem(KEY_MAP);
+      if (mapRaw) vinculos = JSON.parse(mapRaw);
+    }
+  } catch(e) { console.warn('Error al restaurar:', e); }
+  renderPedido();
+  renderVinculos();
+}
+function olvidarCatalogo() {
+  if (!confirm('¿Olvidar el catálogo guardado?')) return;
+  productos = [];
+  document.getElementById('infoCat').textContent = '';
+  document.getElementById('diag').textContent = '';
+  document.getElementById('avisoGuardado').style.display = 'none';
+  document.getElementById('btnOlvidarWrap').style.display = 'none';
+  guardarEstado();
 }
 
 /* ============ Procesar PDF ============ */
@@ -339,7 +388,7 @@ async function procesarPDF(event) {
     info.innerHTML = `✔ <b>${productos.length}</b> productos · ${totalPaginas} páginas`;
     diag.textContent = `Diagnóstico: ${lineasTotales} líneas · ${lineasSinSKU} sin SKU · ${lineasSinPrecio} sin precio · ${paginasConError} errores`;
 
-    if (!productos.length) alert('No se detectaron productos. ¿El PDF es escaneado?');
+    if (!productos.length) alert('No se detectaron productos.');
     else {
       guardarEstado();
       document.getElementById('avisoGuardado').style.display = 'block';
@@ -350,7 +399,6 @@ async function procesarPDF(event) {
     alert('Error al leer el PDF: ' + err.message);
   }
 }
-
 function parsearLinea(texto) {
   const limpio = texto.replace(/\s+/g, ' ').trim();
   if (!limpio) return 'vacio';
@@ -363,7 +411,6 @@ function parsearLinea(texto) {
   const sku = partes[skuIndex];
   const resto = partes.slice(skuIndex + 1).join(' ');
   if (/^DESCRIPCI/i.test(resto)) return 'header';
-
   const precios = [...resto.matchAll(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2})/g)]
     .map(m => parseFloat(m[1].replace(/,/g, ''))).filter(n => !isNaN(n));
   if (!precios.length) return 'sinPrecio';
@@ -378,7 +425,7 @@ function parsearLinea(texto) {
   return 'ok';
 }
 
-/* ============ Buscador ============ */
+/* ============ Buscador (Pedido/Inventario) ============ */
 function buscar() {
   const q = document.getElementById('busqueda').value.toLowerCase().trim();
   const cont = document.getElementById('resultados');
@@ -407,20 +454,65 @@ function pintarSeleccion() {
   if (sel) sel.scrollIntoView({ block: 'nearest' });
 }
 function teclaBusqueda(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const q = document.getElementById('busqueda').value.trim();
+
+    // ¿Es un código de barras con vínculo guardado?
+    const skuVinculado = vinculos[q];
+    if (skuVinculado) {
+      const p = productos.find(x => x.sku.toUpperCase() === skuVinculado.toUpperCase());
+      if (p) {
+        document.getElementById('busqueda').value = '';
+        document.getElementById('resultados').innerHTML = '';
+        seleccionarProductoDirecto(p, '🔗 Vinculado');
+        return;
+      }
+    }
+
+    // ¿Es un SKU directo?
+    const p = productos.find(x => x.sku.toLowerCase() === q.toLowerCase());
+    if (p && q.length >= 4) {
+      document.getElementById('busqueda').value = '';
+      document.getElementById('resultados').innerHTML = '';
+      seleccionarProductoDirecto(p, 'SKU');
+      return;
+    }
+
+    // Si hay resultado resaltado, seleccionarlo
+    if (resultadosActuales.length && indiceSel >= 0) {
+      seleccionar(indiceSel);
+      return;
+    }
+
+    // ¿No hay match? Si parece código de barras y no está vinculado, ofrecer vincular
+    if (q.length >= 8 && /^[0-9A-Za-z\-]+$/.test(q)) {
+      if (confirm(`El código "${q}" no está vinculado a ningún SKU.\n\n¿Quieres vincularlo ahora?`)) {
+        document.getElementById('busqueda').value = '';
+        cambiarPestana('vincular');
+        document.getElementById('inputCodigo').value = q;
+        capturarCodigo();
+      }
+    }
+  }
   if (!resultadosActuales.length) return;
   if (e.key === 'ArrowDown') { e.preventDefault(); indiceSel = Math.min(indiceSel + 1, resultadosActuales.length - 1); pintarSeleccion(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); indiceSel = Math.max(indiceSel - 1, 0); pintarSeleccion(); }
-  else if (e.key === 'Enter') { e.preventDefault(); if (indiceSel >= 0) seleccionar(indiceSel); }
   else if (e.key === 'Escape') { document.getElementById('resultados').innerHTML = ''; resultadosActuales = []; }
 }
 
 function seleccionar(i) {
   const p = resultadosActuales[i];
   if (!p) return;
-  productoSeleccionado = p;
   abrirModalCantidad(p);
 }
+function seleccionarProductoDirecto(p, fuente) {
+  toast(`✔ ${fuente}: ${p.sku}`);
+  abrirModalCantidad(p);
+  productoSeleccionado = p;
+}
 function abrirModalCantidad(p) {
+  productoSeleccionado = p;
   document.getElementById('infoProducto').innerHTML = `
     <div style="font-weight:bold; font-size:14px;">${p.sku}</div>
     <div class="small" style="margin:4px 0;">${p.descripcion}</div>
@@ -439,7 +531,11 @@ function cerrarModalCantidad() {
   document.getElementById('busqueda').value = '';
   document.getElementById('resultados').innerHTML = '';
   resultadosActuales = []; indiceSel = -1;
-  document.getElementById('busqueda').focus();
+  if (tabActual === 'vincular') {
+    document.getElementById('inputCodigo').focus();
+  } else {
+    document.getElementById('busqueda').focus();
+  }
 }
 function confirmarCantidad() {
   if (!productoSeleccionado) return;
@@ -456,192 +552,153 @@ function agregarAlPedido(p, cant) {
   guardarEstado();
 }
 
-/* ============ Buscar por código (exacto o fuzzy) ============ */
-function buscarProductoPorCodigo(codigo, maxDist = 0) {
-  codigo = String(codigo).toUpperCase().trim();
-  // Exacto
-  let p = productos.find(x => x.sku.toUpperCase() === codigo);
-  if (p) return p;
-  if (maxDist <= 0) return null;
+/* ============ PESTAÑA VINCULAR ============ */
+function capturarCodigo() {
+  const inp = document.getElementById('inputCodigo');
+  const codigo = inp.value.trim().toUpperCase();
+  if (!codigo) return;
 
-  const norm = s => s.replace(/[^A-Z0-9]/g, '');
-  const codN = norm(codigo);
-  if (codN.length < 4) return null;
-
-  let mejor = null, mejorDist = Infinity;
-  for (const prod of productos) {
-    const prodN = norm(prod.sku);
-    if (Math.abs(prodN.length - codN.length) > maxDist + 2) continue;
-    const d = levenshtein(codN, prodN);
-    if (d < mejorDist) { mejorDist = d; mejor = prod; }
-  }
-  if (mejor && mejorDist <= maxDist) return mejor;
-  return null;
-}
-
-/* ============ ESCÁNER + OCR CONTINUO ============ */
-function abrirEscaner() {
-  if (!productos.length) { alert('Primero sube el catálogo (PDF).'); return; }
-  scanEncontrado = false;
-  ultimoTextoOCR = '';
-  document.getElementById('scanStatus').textContent = 'Iniciando cámara…';
-  document.getElementById('modalEscaner').classList.add('activo');
-
-  html5QrCode = new Html5Qrcode("reader");
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 280, height: 180 } },
-    (decodedText) => { onScanBarcode(decodedText); },
-    () => {}
-  ).then(() => {
-    document.getElementById('scanStatus').textContent = '🔍 Buscando código o texto…';
-    iniciarOCRContinuo();
-  }).catch(err => {
-    alert('No se pudo abrir la cámara: ' + err + '\n\nLa cámara requiere HTTPS.');
-    cerrarEscaner();
-  });
-}
-
-function cerrarEscaner() {
-  detenerOCR();
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => { html5QrCode = null; });
-  }
-  document.getElementById('modalEscaner').classList.remove('activo');
-}
-
-function onScanBarcode(codigo) {
-  if (scanEncontrado) return;
-  const c = String(codigo).toUpperCase().trim();
-  // Intento 1: búsqueda exacta (códigos de barras que sí coinciden con SKU)
-  let p = buscarProductoPorCodigo(c, 0);
-  // Intento 2: fuzzy de 1 char (por si el código de barras trae el SKU con formato)
-  if (!p) p = buscarProductoPorCodigo(c, 1);
-  if (!p) {
-    // Intento 3: buscar por dígitos (EAN-13 vs SKU numérico)
-    const soloDig = c.replace(/[^0-9]/g, '');
-    if (soloDig.length >= 6) {
-      p = productos.find(x => {
-        const skuDig = x.sku.replace(/[^0-9]/g, '');
-        return skuDig && (skuDig === soloDig || skuDig.endsWith(soloDig) || soloDig.endsWith(skuDig));
-      });
-    }
-  }
-  if (p) onEncontrado(p, '📷 Código de barras');
-  // Si no, no hacemos nada - el OCR sigue buscando en paralelo
-}
-
-function onEncontrado(p, fuente) {
-  if (scanEncontrado) return;
-  scanEncontrado = true;
-  if (navigator.vibrate) navigator.vibrate(80);
-  cerrarEscaner();
-  setTimeout(() => {
-    productoSeleccionado = p;
-    resultadosActuales = [p]; indiceSel = 0;
-    abrirModalCantidad(p);
-    toast(`✔ Detectado (${fuente || ''})`);
-  }, 150);
-}
-
-/* --- OCR continuo dentro de la cámara --- */
-async function iniciarOCRContinuo() {
-  if (!ocrWorker) {
-    try {
-      document.getElementById('scanStatus').textContent = '⏳ Cargando lector de texto (una sola vez)…';
-      ocrWorker = await Tesseract.createWorker('eng', 1);
-      await ocrWorker.setParameters({
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
-        tessedit_pageseg_mode: '6'  // bloque uniforme de texto
-      });
-      document.getElementById('scanStatus').textContent = '🔍 Buscando código o texto…';
-    } catch(e) {
-      console.warn('OCR no disponible:', e);
-      document.getElementById('scanStatus').textContent = '⚠️ Solo código de barras (OCR no disponible)';
+  // ¿Ya está vinculado?
+  if (vinculos[codigo]) {
+    const skuActual = vinculos[codigo];
+    if (!confirm(`Este código ya está vinculado a:\n${skuActual}\n\n¿Quieres cambiarlo?`)) {
+      limpiarInputCodigo();
       return;
     }
   }
-  // Ejecuta cada 1.8s
-  ocrInterval = setInterval(capturarYOCR, 1800);
+
+  codigoPendiente = codigo;
+  document.getElementById('codigoCapturado').textContent = codigo;
+  document.getElementById('paso2Wrap').style.display = 'block';
+  document.getElementById('busquedaSku').value = '';
+  document.getElementById('resultadosSku').innerHTML = '';
+  document.getElementById('busquedaSku').focus();
 }
 
-function detenerOCR() {
-  if (ocrInterval) { clearInterval(ocrInterval); ocrInterval = null; }
-  ocrRunning = false;
+function limpiarInputCodigo() {
+  document.getElementById('inputCodigo').value = '';
+  document.getElementById('paso2Wrap').style.display = 'none';
+  codigoPendiente = null;
+  document.getElementById('inputCodigo').focus();
 }
 
-async function capturarYOCR() {
-  if (scanEncontrado) return;
-  if (ocrRunning) return;
-  if (!document.getElementById('modalEscaner').classList.contains('activo')) return;
+function buscarParaVincular() {
+  const q = document.getElementById('busquedaSku').value.toLowerCase().trim();
+  const cont = document.getElementById('resultadosSku');
+  if (!q) { cont.innerHTML = ''; return; }
+  const res = productos.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.descripcion.toLowerCase().includes(q)
+  ).slice(0, 20);
+  if (!res.length) { cont.innerHTML = '<p class="small">Sin resultados.</p>'; return; }
+  cont.innerHTML = '<table><thead><tr><th>SKU</th><th>Descripción</th><th></th></tr></thead><tbody>' +
+    res.map(p =>
+      `<tr class="resultado">
+        <td>${p.sku}</td>
+        <td>${p.descripcion}</td>
+        <td><button class="verde" style="padding:6px 10px; font-size:12px;" onclick="guardarVinculo('${p.sku}')">🔗 Vincular</button></td>
+      </tr>`).join('') + '</tbody></table>';
+}
 
-  const video = document.querySelector('#reader video');
-  if (!video || video.readyState < 2 || !video.videoWidth) return;
+function guardarVinculo(sku) {
+  if (!codigoPendiente) return;
+  vinculos[codigoPendiente] = sku;
+  localStorage.setItem(KEY_MAP, JSON.stringify(vinculos));
+  guardarEstado();
+  toast(`✔ Vinculado ${codigoPendiente} → ${sku}`);
+  renderVinculos();
+  limpiarInputCodigo();
+}
 
-  ocrRunning = true;
-  try {
-    // Recorte central: 70% ancho x 40% alto
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const cropW = Math.round(vw * 0.7);
-    const cropH = Math.round(vh * 0.40);
-    const sx = Math.round((vw - cropW) / 2);
-    const sy = Math.round((vh - cropH) / 2);
+function renderVinculos() {
+  const tb = document.querySelector('#tablaVinculos tbody');
+  const filtro = (document.getElementById('filtroVinculos').value || '').toLowerCase().trim();
+  const entries = Object.entries(vinculos)
+    .filter(([cod, sku]) => {
+      if (!filtro) return true;
+      const prod = productos.find(p => p.sku.toUpperCase() === sku.toUpperCase());
+      const desc = prod ? prod.descripcion.toLowerCase() : '';
+      return cod.toLowerCase().includes(filtro) || sku.toLowerCase().includes(filtro) || desc.includes(filtro);
+    });
 
-    const canvas = document.createElement('canvas');
-    const targetW = 800;
-    const scale = Math.min(1, targetW / cropW);
-    canvas.width = Math.round(cropW * scale);
-    canvas.height = Math.round(cropH * scale);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+  document.getElementById('contadorVinculos').textContent = Object.keys(vinculos).length;
 
-    // Escala de grises + contraste
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      let gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-      gray = (gray - 128) * 1.4 + 128;
-      gray = gray < 0 ? 0 : gray > 255 ? 255 : gray;
-      d[i] = d[i+1] = d[i+2] = gray;
-    }
-    ctx.putImageData(imgData, 0, 0);
+  tb.innerHTML = entries.map(([cod, sku]) => {
+    const prod = productos.find(p => p.sku.toUpperCase() === sku.toUpperCase());
+    const desc = prod ? prod.descripcion : '⚠️ (SKU no está en catálogo)';
+    return `<tr>
+      <td style="font-family:monospace;">${cod}</td>
+      <td>${sku}</td>
+      <td class="small">${desc}</td>
+      <td><button class="rojo" style="padding:6px 10px; font-size:12px;" onclick="borrarVinculo('${cod}')">X</button></td>
+    </tr>`;
+  }).join('');
+}
 
-    const { data: { text } } = await ocrWorker.recognize(canvas);
-    const limpio = (text || '').replace(/\s+/g, ' ').trim();
+function borrarVinculo(codigo) {
+  if (!confirm(`¿Borrar el vínculo del código ${codigo}?`)) return;
+  delete vinculos[codigo];
+  localStorage.setItem(KEY_MAP, JSON.stringify(vinculos));
+  guardarEstado();
+  renderVinculos();
+}
 
-    if (limpio && limpio !== ultimoTextoOCR) {
-      ultimoTextoOCR = limpio;
-      document.getElementById('scanStatus').textContent = '👁 ' + limpio.slice(0, 60);
-    }
+/* ============ Exportar / Importar vínculos ============ */
+function exportarVinculos() {
+  if (!Object.keys(vinculos).length) { alert('No hay vínculos para exportar.'); return; }
+  const data = {
+    version: 1,
+    exportado: new Date().toISOString(),
+    vinculos: vinculos
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vinculos_sahagun_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-    // Extrae candidatos y busca match
-    const candidatos = extraerCandidatosSKU(text);
-    for (const cand of candidatos) {
-      const p = buscarProductoPorCodigo(cand, 1);
-      if (p) {
-        onEncontrado(p, '👁 Texto leído');
-        return;
+function importarVinculos(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const nuevos = data.vinculos || data;
+      if (!nuevos || typeof nuevos !== 'object') throw new Error('Formato inválido');
+      const total = Object.keys(nuevos).length;
+      const fusionar = confirm(`Se encontraron ${total} vínculos.\n\n¿Fusionar con los actuales? (Aceptar)\n¿Reemplazar todos? (Cancelar)`);
+      if (fusionar) {
+        vinculos = { ...vinculos, ...nuevos };
+      } else {
+        vinculos = { ...nuevos };
       }
+      localStorage.setItem(KEY_MAP, JSON.stringify(vinculos));
+      guardarEstado();
+      renderVinculos();
+      toast(`✔ ${total} vínculos importados`);
+    } catch (err) {
+      alert('Error al importar: ' + err.message);
     }
-  } catch(e) {
-    console.warn('OCR:', e);
-  } finally {
-    ocrRunning = false;
-  }
+  };
+  reader.readAsText(file);
 }
 
-function extraerCandidatosSKU(texto) {
-  const t = String(texto || '').toUpperCase();
-  const c = [];
-  // Patrón: XX000000-XX o X00XX00000-X (con o sin espacios)
-  const m1 = t.match(/[A-Z0-9]{3,15}-[A-Z0-9]{1,3}/g);
-  if (m1) c.push(...m1);
-  // Bloques alfanuméricos largos
-  const m2 = t.match(/[A-Z0-9]{7,15}/g);
-  if (m2) c.push(...m2);
-  // Tokens sueltos >= 5
-  t.replace(/[^A-Z0-9\- ]/g, ' ').split(/\s+/).filter(x => x.length >= 5).forEach(x => c.push(x));
-  return [...new Set(c)];
+function descargarCSVVinculos() {
+  if (!Object.keys(vinculos).length) { alert('No hay vínculos.'); return; }
+  const aoa = [['Codigo de barras', 'SKU', 'Descripcion']];
+  Object.entries(vinculos).forEach(([cod, sku]) => {
+    const prod = productos.find(p => p.sku.toUpperCase() === sku.toUpperCase());
+    aoa.push([cod, sku, prod ? prod.descripcion : '']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 50 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Vinculos');
+  XLSX.writeFile(wb, `vinculos_sahagun_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 /* ============ Lista pedido / inventario ============ */
@@ -671,20 +728,18 @@ function limpiarPedido() {
   }
 }
 
-/* ============ Excel ============ */
+/* ============ Excel pedido ============ */
 function exportarExcel() {
   if (!pedido.length) { alert('La lista está vacía.'); return; }
   const tienda = document.getElementById('tienda').value || 'SAHAGUN';
   const fecha = new Date().toLocaleDateString('es-MX').replace(/\//g, '-');
   const esPedido = modo === 'pedido';
-
   const aoa = [];
   aoa.push([esPedido ? 'Formato de Pedidos' : 'Inventario', '', 'Tienda', tienda]);
   aoa.push(['', '', 'Fecha', fecha]);
   aoa.push(['Rex', 'Descripción', 'Cantidad', 'UM']);
   pedido.forEach(p => aoa.push([p.sku, p.descripcion, p.cantidad, p.um]));
   for (let i = 0; i < 15; i++) aoa.push(['', '', '', '']);
-
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 18 }, { wch: 50 }, { wch: 12 }, { wch: 10 }];
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
@@ -696,6 +751,7 @@ function exportarExcel() {
 
 /* ============ Inicio ============ */
 cargarEstado();
+document.getElementById('busqueda').focus();
 </script>
 </body>
 </html>
