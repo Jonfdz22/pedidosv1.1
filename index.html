@@ -23,11 +23,10 @@
   h3 { margin:0 0 10px 0; color:#1a3a6b; font-size:15px;}
   input, textarea, button, select { font-size:16px; padding:10px; box-sizing:border-box; font-family:inherit;}
   input[type=text], input[type=number], textarea { width:100%; border:1px solid #ccc; border-radius:6px;}
-  textarea { height:80px; font-family:monospace; font-size:12px;}
   button { background:#1a5fbf; color:white; border:none; border-radius:6px; cursor:pointer; padding:10px 16px; font-weight:bold;}
   button:active { opacity:.7; }
   button.rojo { background:#c0392b;} button.verde { background:#1e8449;}
-  button.gris { background:#7f8c8d;} button.morado { background:#8e44ad;}
+  button.gris { background:#7f8c8d;} 
   .fila { display:flex; gap:8px; align-items:stretch; }
   .fila input { flex:1; }
   table { width:100%; border-collapse:collapse; background:white; margin-top:8px;}
@@ -53,12 +52,15 @@
   .modal { background:white; border-radius:12px; padding:20px; width:100%; max-width:440px;}
   .modal h3 { margin-top:0;}
   .cant-grande { font-size:28px; text-align:center; font-weight:bold; padding:12px; width:100%; }
-  #reader { width:100%; border-radius:10px; overflow:hidden; }
+  #reader { width:100%; border-radius:10px; overflow:hidden; background:#000; min-height:220px;}
+  #reader video { width:100% !important; height:auto !important; }
   .progreso { font-size:12px; color:#1a5fbf; font-weight:bold; margin-top:6px;}
   .diag { font-size:11px; color:#888; margin-top:4px;}
-  .ocr-preview { max-width:100%; max-height:200px; border-radius:8px; margin:8px 0; display:block; }
-  .ocr-texto { font-family:monospace; font-size:13px; background:#f0f0f0; padding:8px; border-radius:6px;
-               word-break:break-all; max-height:100px; overflow-y:auto;}
+  .scan-status { background:#f0f7ff; color:#1a3a6b; padding:8px 10px; border-radius:6px;
+                 font-size:12px; font-family:monospace; margin:8px 0; min-height:34px;
+                 word-break:break-all; }
+  .aviso-guardado { background:#fff8e1; color:#7a5a00; padding:6px 10px; border-radius:6px;
+                    font-size:12px; margin-top:8px; display:none;}
   @media(min-width:700px){
     body { padding-bottom:20px; max-width:900px; margin:0 auto;}
     .acciones-fijas { position:static; margin:10px; box-shadow:0 2px 6px rgba(0,0,0,.08); border-radius:10px;}
@@ -82,18 +84,21 @@
   <div id="loader" class="progreso" style="display:none;"></div>
   <div id="infoCat" class="small"></div>
   <div id="diag" class="diag"></div>
+  <div class="aviso-guardado" id="avisoGuardado">💾 Catálogo guardado en este celular — no necesitas subir el PDF otra vez</div>
+  <div id="btnOlvidarWrap" style="margin-top:8px; display:none;">
+    <button class="gris" style="font-size:12px; padding:6px 10px;" onclick="olvidarCatalogo()">🗑 Olvidar catálogo guardado</button>
+  </div>
 </div>
 
 <div class="panel">
-  <h3>2 · Busca, escanea o lee código</h3>
+  <h3>2 · Busca o escanea</h3>
   <div class="fila">
     <input type="text" id="busqueda" placeholder="SKU o descripción…"
            oninput="buscar()" onkeydown="teclaBusqueda(event)">
-    <button onclick="abrirEscaner()" title="Escanear código de barras" style="background:#1e8449; padding:10px 12px; font-size:18px;">📷</button>
-    <button onclick="abrirOCR()" title="Leer código impreso (OCR)" class="morado" style="padding:10px 12px; font-size:18px;">🔍</button>
+    <button onclick="abrirEscaner()" title="Escanear" style="background:#1e8449; padding:10px 14px; font-size:20px;">📷</button>
   </div>
   <p class="small" style="margin:6px 0 0 0;">
-    📷 código de barras · 🔍 foto del código impreso (K07RR70-G) · ↑↓ y Enter en PC
+    📷 Apunta al código de barras <b>o al código impreso</b> — la cámara busca en automático. En PC usa ↑↓ y Enter.
   </p>
   <div id="resultados"></div>
 </div>
@@ -103,7 +108,7 @@
   <div class="fila" style="margin-bottom:8px;">
     <div style="flex:1;">
       <label class="small">Tienda:</label>
-      <input type="text" id="tienda" value="SAHAGUN">
+      <input type="text" id="tienda" value="SAHAGUN" oninput="guardarEstado()">
     </div>
     <div style="flex:1;">
       <label class="small">Fecha:</label>
@@ -124,43 +129,16 @@
   <button class="rojo" onclick="limpiarPedido()">🗑 Limpiar</button>
 </div>
 
-<!-- Modal barcode -->
+<!-- Modal escáner -->
 <div class="modal-bg" id="modalEscaner">
   <div class="modal">
-    <h3>📷 Escanear código de barras</h3>
+    <h3>📷 Escanear</h3>
     <div id="reader"></div>
-    <p class="small">Apunta al código de barras.</p>
+    <div class="scan-status" id="scanStatus">Iniciando cámara…</div>
+    <p class="small" style="margin:0 0 8px 0;">
+      Apunta al código de barras o al texto del SKU. La cámara está buscando en automático.
+    </p>
     <button class="rojo" style="width:100%;" onclick="cerrarEscaner()">Cancelar</button>
-  </div>
-</div>
-
-<!-- Modal OCR -->
-<div class="modal-bg" id="modalOCR">
-  <div class="modal">
-    <h3>🔍 Leer código impreso (OCR)</h3>
-
-    <div id="ocrStep1">
-      <p class="small">Toma una foto del código impreso (ej. <b>K07RR70-G</b>). Procura que esté bien iluminado, en foco y horizontal.</p>
-      <input type="file" id="fotoCamara" accept="image/*" capture="environment" style="display:none" onchange="procesarFotoOCR(event)">
-      <input type="file" id="fotoGaleria" accept="image/*" style="display:none" onchange="procesarFotoOCR(event)">
-      <button class="verde" style="width:100%; margin-bottom:8px;" onclick="document.getElementById('fotoCamara').click()">📸 Tomar foto</button>
-      <button style="width:100%;" onclick="document.getElementById('fotoGaleria').click()">🖼 Elegir de galería</button>
-    </div>
-
-    <div id="ocrStep2" style="display:none;">
-      <p id="ocrStatus" class="small" style="color:#1a5fbf; font-weight:bold;">⏳ Preparando…</p>
-      <img id="ocrPreview" class="ocr-preview">
-      <div id="ocrResultado" class="ocr-texto"></div>
-      <label class="small" style="display:block; margin-top:10px;">Código detectado (puedes editarlo):</label>
-      <input type="text" id="ocrCodigo"
-             style="width:100%; font-size:18px; font-weight:bold; text-align:center; text-transform:uppercase;">
-      <div class="fila" style="margin-top:10px;">
-        <button class="verde" style="flex:1;" onclick="aceptarOCRCodigo()">✔ Usar</button>
-        <button class="gris" onclick="reiniciarOCR()">🔄 Otra foto</button>
-      </div>
-    </div>
-
-    <button class="rojo" style="width:100%; margin-top:8px;" onclick="cerrarOCR()">Cancelar</button>
   </div>
 </div>
 
@@ -183,6 +161,8 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
+const STORAGE_KEY = 'pedido_sahagun_v2';
+
 let productos = [];
 let pedido = [];
 let resultadosActuales = [];
@@ -191,19 +171,76 @@ let productoSeleccionado = null;
 let modo = 'pedido';
 let html5QrCode = null;
 let ocrWorker = null;
+let ocrInterval = null;
+let ocrRunning = false;
+let scanEncontrado = false;
+let ultimoTextoOCR = '';
 
 document.getElementById('fecha').value = new Date().toLocaleDateString('es-MX');
 
-/* ---------- Modo ---------- */
+/* ============ PERSISTENCIA ============ */
+function guardarEstado() {
+  try {
+    const data = {
+      productos,
+      pedido,
+      tienda: document.getElementById('tienda').value,
+      modo,
+      fecha: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {
+    console.warn('No se pudo guardar:', e);
+  }
+}
+
+function cargarEstado() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    if (Array.isArray(obj.productos) && obj.productos.length) {
+      productos = obj.productos;
+      const fechaStr = obj.fecha ? new Date(obj.fecha).toLocaleString('es-MX') : '';
+      document.getElementById('infoCat').innerHTML = `✔ <b>${productos.length}</b> productos restaurados <span class="small">(${fechaStr})</span>`;
+      document.getElementById('avisoGuardado').style.display = 'block';
+      document.getElementById('btnOlvidarWrap').style.display = 'block';
+    }
+    if (Array.isArray(obj.pedido)) pedido = obj.pedido;
+    if (typeof obj.tienda === 'string') document.getElementById('tienda').value = obj.tienda;
+    if (obj.modo === 'inventario' || obj.modo === 'pedido') cambiarModo(obj.modo);
+    renderPedido();
+  } catch(e) {
+    console.warn('Error al restaurar:', e);
+  }
+}
+
+function olvidarCatalogo() {
+  if (!confirm('¿Olvidar el catálogo guardado? Tendrás que subir el PDF otra vez.')) return;
+  productos = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    obj.productos = [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  } catch(e) {}
+  document.getElementById('infoCat').textContent = '';
+  document.getElementById('diag').textContent = '';
+  document.getElementById('avisoGuardado').style.display = 'none';
+  document.getElementById('btnOlvidarWrap').style.display = 'none';
+}
+
+/* ============ MODO ============ */
 function cambiarModo(m) {
   modo = m;
   document.getElementById('tabPedido').classList.toggle('activo', m === 'pedido');
   document.getElementById('tabInventario').classList.toggle('activo', m === 'inventario');
   document.getElementById('tituloModo').textContent = m === 'pedido' ? 'Pedido' : 'Inventario';
   document.getElementById('tituloLista').textContent = m === 'pedido' ? 'Pedido' : 'Conteo';
+  guardarEstado();
 }
 
-/* ---------- Utilidades ---------- */
+/* ============ Utilidades ============ */
 function detectarUM(sku) {
   const s = (sku || '').toUpperCase().trim();
   if (/-5G$/.test(s)) return 'CUBETA';
@@ -236,17 +273,13 @@ function toast(msg) {
   clearTimeout(window._toastT);
   window._toastT = setTimeout(() => t.classList.remove('show'), 1800);
 }
-
-/* ---------- Levenshtein (para fuzzy match) ---------- */
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
-  if (!m) return n;
-  if (!n) return m;
+  if (!m) return n; if (!n) return m;
   const dp = new Array(n + 1);
   for (let j = 0; j <= n; j++) dp[j] = j;
   for (let i = 1; i <= m; i++) {
-    let prev = dp[0];
-    dp[0] = i;
+    let prev = dp[0]; dp[0] = i;
     for (let j = 1; j <= n; j++) {
       const tmp = dp[j];
       dp[j] = a[i-1] === b[j-1] ? prev : 1 + Math.min(dp[j], dp[j-1], prev);
@@ -256,7 +289,7 @@ function levenshtein(a, b) {
   return dp[n];
 }
 
-/* ---------- Procesar PDF ---------- */
+/* ============ Procesar PDF ============ */
 async function procesarPDF(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -265,6 +298,8 @@ async function procesarPDF(event) {
   const diag = document.getElementById('diag');
   loader.style.display = 'block';
   info.textContent = ''; diag.textContent = '';
+  document.getElementById('avisoGuardado').style.display = 'none';
+  document.getElementById('btnOlvidarWrap').style.display = 'none';
   productos = [];
 
   let lineasTotales = 0, lineasSinSKU = 0, lineasSinPrecio = 0, paginasConError = 0;
@@ -305,6 +340,11 @@ async function procesarPDF(event) {
     diag.textContent = `Diagnóstico: ${lineasTotales} líneas · ${lineasSinSKU} sin SKU · ${lineasSinPrecio} sin precio · ${paginasConError} errores`;
 
     if (!productos.length) alert('No se detectaron productos. ¿El PDF es escaneado?');
+    else {
+      guardarEstado();
+      document.getElementById('avisoGuardado').style.display = 'block';
+      document.getElementById('btnOlvidarWrap').style.display = 'block';
+    }
   } catch (err) {
     loader.style.display = 'none';
     alert('Error al leer el PDF: ' + err.message);
@@ -338,7 +378,7 @@ function parsearLinea(texto) {
   return 'ok';
 }
 
-/* ---------- Buscador ---------- */
+/* ============ Buscador ============ */
 function buscar() {
   const q = document.getElementById('busqueda').value.toLowerCase().trim();
   const cont = document.getElementById('resultados');
@@ -374,7 +414,6 @@ function teclaBusqueda(e) {
   else if (e.key === 'Escape') { document.getElementById('resultados').innerHTML = ''; resultadosActuales = []; }
 }
 
-/* ---------- Seleccionar producto ---------- */
 function seleccionar(i) {
   const p = resultadosActuales[i];
   if (!p) return;
@@ -414,213 +453,20 @@ function agregarAlPedido(p, cant) {
   if (ex) ex.cantidad += cant;
   else pedido.push({ sku: p.sku, descripcion: p.descripcion, precio: p.precio, um: p.um, cantidad: cant });
   renderPedido();
+  guardarEstado();
 }
 
-/* ---------- Escáner de código de barras ---------- */
-function abrirEscaner() {
-  if (!productos.length) { alert('Primero sube el catálogo (PDF).'); return; }
-  document.getElementById('modalEscaner').classList.add('activo');
-  html5QrCode = new Html5Qrcode("reader");
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 150 } },
-    (decodedText) => { onScan(decodedText); },
-    () => {}
-  ).catch(err => {
-    alert('No se pudo abrir la cámara: ' + err + '\n\nLa cámara requiere HTTPS.');
-    cerrarEscaner();
-  });
-}
-function cerrarEscaner() {
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => { html5QrCode = null; });
-  }
-  document.getElementById('modalEscaner').classList.remove('activo');
-}
-function onScan(codigo) {
-  const c = codigo.toUpperCase().trim();
-  // El código de barras EAN normalmente NO coincide con el SKU. Intentamos match de todas formas
-  // por si algún producto sí tuviera el SKU en código de barras.
-  const p = buscarProductoPorCodigo(c, 1);
-  if (!p) {
-    if (navigator.vibrate) navigator.vibrate([100,50,100]);
-    toast('❌ El código de barras no coincide con ningún SKU');
-    // Ofrecer OCR
-    cerrarEscaner();
-    setTimeout(() => {
-      if (confirm('El código de barras (' + c + ') no coincide con el catálogo.\n\n¿Quieres intentar leer el código impreso con la cámara (OCR)?')) {
-        abrirOCR();
-      }
-    }, 200);
-    return;
-  }
-  if (navigator.vibrate) navigator.vibrate(80);
-  cerrarEscaner();
-  setTimeout(() => {
-    productoSeleccionado = p;
-    resultadosActuales = [p]; indiceSel = 0;
-    abrirModalCantidad(p);
-  }, 250);
-}
-
-/* ---------- OCR del código impreso ---------- */
-function abrirOCR() {
-  if (!productos.length) { alert('Primero sube el catálogo (PDF).'); return; }
-  document.getElementById('modalOCR').classList.add('activo');
-  reiniciarOCR();
-}
-function cerrarOCR() {
-  document.getElementById('modalOCR').classList.remove('activo');
-  reiniciarOCR();
-}
-function reiniciarOCR() {
-  document.getElementById('ocrStep1').style.display = 'block';
-  document.getElementById('ocrStep2').style.display = 'none';
-  document.getElementById('ocrPreview').removeAttribute('src');
-  document.getElementById('ocrResultado').textContent = '';
-  document.getElementById('ocrCodigo').value = '';
-}
-
-async function procesarFotoOCR(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  event.target.value = ''; // Permite volver a usar la misma foto
-
-  document.getElementById('ocrStep1').style.display = 'none';
-  document.getElementById('ocrStep2').style.display = 'block';
-  const status = document.getElementById('ocrStatus');
-  status.textContent = '⏳ Preparando imagen…';
-  document.getElementById('ocrResultado').textContent = '';
-  document.getElementById('ocrCodigo').value = '';
-
-  try {
-    const canvas = await preprocesarImagen(file);
-    const preview = document.getElementById('ocrPreview');
-    preview.src = canvas.toDataURL('image/jpeg', 0.75);
-
-    status.textContent = '🔍 Analizando (la primera vez tarda ~10s por descargar el OCR)…';
-
-    // Crear worker (una sola vez, se reutiliza)
-    if (!ocrWorker) {
-      ocrWorker = await Tesseract.createWorker('eng', 1, {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            status.textContent = `🔍 Analizando… ${Math.round(m.progress * 100)}%`;
-          }
-        }
-      });
-      await ocrWorker.setParameters({
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
-        tessedit_pageseg_mode: '6'
-      });
-    }
-
-    const { data: { text } } = await ocrWorker.recognize(canvas);
-    status.textContent = '✅ Listo';
-    document.getElementById('ocrResultado').textContent = 'Detectado: ' + (text || '(nada)').replace(/\s+/g, ' ').trim();
-
-    const candidatos = extraerCandidatosSKU(text);
-    if (candidatos.length) {
-      const mejor = mejorCandidato(candidatos);
-      document.getElementById('ocrCodigo').value = mejor;
-    } else {
-      const limpio = text.replace(/[^A-Z0-9\-]/gi, '').slice(0, 20).toUpperCase();
-      document.getElementById('ocrCodigo').value = limpio;
-    }
-  } catch (err) {
-    console.error(err);
-    status.textContent = '❌ Error: ' + err.message;
-  }
-}
-
-function preprocesarImagen(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const maxW = 1600;
-      const scale = img.width > maxW ? maxW / img.width : 1;
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-
-      // Escala de grises + contraste (mejora OCR)
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const d = imageData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-        let v = (gray - 128) * 1.5 + 128;
-        v = v < 0 ? 0 : v > 255 ? 255 : v;
-        d[i] = d[i+1] = d[i+2] = v;
-      }
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas);
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function extraerCandidatosSKU(texto) {
-  const t = texto.toUpperCase().replace(/[^A-Z0-9\-]/g, ' ');
-  const c = [];
-  // Patrón típico: XXX-000000-00 o X00XX00000-X
-  const m1 = t.match(/[A-Z0-9]{4,15}-[A-Z0-9]{1,3}/g);
-  if (m1) c.push(...m1);
-  // Sólo alfanuméricos largos
-  const m2 = t.match(/[A-Z0-9]{8,15}/g);
-  if (m2) c.push(...m2);
-  // Tokens sueltos >= 5
-  t.split(/\s+/).filter(x => x.length >= 5).forEach(x => c.push(x));
-  return [...new Set(c)];
-}
-
-function mejorCandidato(candidatos) {
-  if (!productos.length) return candidatos[0];
-  let mejor = candidatos[0];
-  let mejorDist = Infinity;
-  for (const cand of candidatos) {
-    for (const prod of productos) {
-      const d = levenshtein(cand, prod.sku);
-      if (d < mejorDist) { mejorDist = d; mejor = cand; }
-    }
-  }
-  return mejor;
-}
-
-function aceptarOCRCodigo() {
-  const codigo = document.getElementById('ocrCodigo').value.trim().toUpperCase();
-  if (!codigo) return;
-  cerrarOCR();
-
-  // Intento 1: fuzzy match con distancia <= 2
-  const p = buscarProductoPorCodigo(codigo, 2);
-  if (p) {
-    productoSeleccionado = p;
-    resultadosActuales = [p]; indiceSel = 0;
-    abrirModalCantidad(p);
-  } else {
-    // No lo encontró: se lo mostramos al usuario en el buscador
-    document.getElementById('busqueda').value = codigo;
-    buscar();
-    toast('🔎 Código puesto en el buscador');
-  }
-}
-
-/* Devuelve el mejor producto cuyo SKU sea parecido, dentro del umbral dado.
-   Si maxDist = 0, exige coincidencia exacta. */
+/* ============ Buscar por código (exacto o fuzzy) ============ */
 function buscarProductoPorCodigo(codigo, maxDist = 0) {
-  codigo = codigo.toUpperCase();
+  codigo = String(codigo).toUpperCase().trim();
   // Exacto
   let p = productos.find(x => x.sku.toUpperCase() === codigo);
   if (p) return p;
   if (maxDist <= 0) return null;
 
-  // Compara solo alfanuméricos para evitar que el guion cuente
   const norm = s => s.replace(/[^A-Z0-9]/g, '');
   const codN = norm(codigo);
+  if (codN.length < 4) return null;
 
   let mejor = null, mejorDist = Infinity;
   for (const prod of productos) {
@@ -633,7 +479,172 @@ function buscarProductoPorCodigo(codigo, maxDist = 0) {
   return null;
 }
 
-/* ---------- Lista pedido / inventario ---------- */
+/* ============ ESCÁNER + OCR CONTINUO ============ */
+function abrirEscaner() {
+  if (!productos.length) { alert('Primero sube el catálogo (PDF).'); return; }
+  scanEncontrado = false;
+  ultimoTextoOCR = '';
+  document.getElementById('scanStatus').textContent = 'Iniciando cámara…';
+  document.getElementById('modalEscaner').classList.add('activo');
+
+  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 280, height: 180 } },
+    (decodedText) => { onScanBarcode(decodedText); },
+    () => {}
+  ).then(() => {
+    document.getElementById('scanStatus').textContent = '🔍 Buscando código o texto…';
+    iniciarOCRContinuo();
+  }).catch(err => {
+    alert('No se pudo abrir la cámara: ' + err + '\n\nLa cámara requiere HTTPS.');
+    cerrarEscaner();
+  });
+}
+
+function cerrarEscaner() {
+  detenerOCR();
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => { html5QrCode = null; });
+  }
+  document.getElementById('modalEscaner').classList.remove('activo');
+}
+
+function onScanBarcode(codigo) {
+  if (scanEncontrado) return;
+  const c = String(codigo).toUpperCase().trim();
+  // Intento 1: búsqueda exacta (códigos de barras que sí coinciden con SKU)
+  let p = buscarProductoPorCodigo(c, 0);
+  // Intento 2: fuzzy de 1 char (por si el código de barras trae el SKU con formato)
+  if (!p) p = buscarProductoPorCodigo(c, 1);
+  if (!p) {
+    // Intento 3: buscar por dígitos (EAN-13 vs SKU numérico)
+    const soloDig = c.replace(/[^0-9]/g, '');
+    if (soloDig.length >= 6) {
+      p = productos.find(x => {
+        const skuDig = x.sku.replace(/[^0-9]/g, '');
+        return skuDig && (skuDig === soloDig || skuDig.endsWith(soloDig) || soloDig.endsWith(skuDig));
+      });
+    }
+  }
+  if (p) onEncontrado(p, '📷 Código de barras');
+  // Si no, no hacemos nada - el OCR sigue buscando en paralelo
+}
+
+function onEncontrado(p, fuente) {
+  if (scanEncontrado) return;
+  scanEncontrado = true;
+  if (navigator.vibrate) navigator.vibrate(80);
+  cerrarEscaner();
+  setTimeout(() => {
+    productoSeleccionado = p;
+    resultadosActuales = [p]; indiceSel = 0;
+    abrirModalCantidad(p);
+    toast(`✔ Detectado (${fuente || ''})`);
+  }, 150);
+}
+
+/* --- OCR continuo dentro de la cámara --- */
+async function iniciarOCRContinuo() {
+  if (!ocrWorker) {
+    try {
+      document.getElementById('scanStatus').textContent = '⏳ Cargando lector de texto (una sola vez)…';
+      ocrWorker = await Tesseract.createWorker('eng', 1);
+      await ocrWorker.setParameters({
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
+        tessedit_pageseg_mode: '6'  // bloque uniforme de texto
+      });
+      document.getElementById('scanStatus').textContent = '🔍 Buscando código o texto…';
+    } catch(e) {
+      console.warn('OCR no disponible:', e);
+      document.getElementById('scanStatus').textContent = '⚠️ Solo código de barras (OCR no disponible)';
+      return;
+    }
+  }
+  // Ejecuta cada 1.8s
+  ocrInterval = setInterval(capturarYOCR, 1800);
+}
+
+function detenerOCR() {
+  if (ocrInterval) { clearInterval(ocrInterval); ocrInterval = null; }
+  ocrRunning = false;
+}
+
+async function capturarYOCR() {
+  if (scanEncontrado) return;
+  if (ocrRunning) return;
+  if (!document.getElementById('modalEscaner').classList.contains('activo')) return;
+
+  const video = document.querySelector('#reader video');
+  if (!video || video.readyState < 2 || !video.videoWidth) return;
+
+  ocrRunning = true;
+  try {
+    // Recorte central: 70% ancho x 40% alto
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const cropW = Math.round(vw * 0.7);
+    const cropH = Math.round(vh * 0.40);
+    const sx = Math.round((vw - cropW) / 2);
+    const sy = Math.round((vh - cropH) / 2);
+
+    const canvas = document.createElement('canvas');
+    const targetW = 800;
+    const scale = Math.min(1, targetW / cropW);
+    canvas.width = Math.round(cropW * scale);
+    canvas.height = Math.round(cropH * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+
+    // Escala de grises + contraste
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      let gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      gray = (gray - 128) * 1.4 + 128;
+      gray = gray < 0 ? 0 : gray > 255 ? 255 : gray;
+      d[i] = d[i+1] = d[i+2] = gray;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const { data: { text } } = await ocrWorker.recognize(canvas);
+    const limpio = (text || '').replace(/\s+/g, ' ').trim();
+
+    if (limpio && limpio !== ultimoTextoOCR) {
+      ultimoTextoOCR = limpio;
+      document.getElementById('scanStatus').textContent = '👁 ' + limpio.slice(0, 60);
+    }
+
+    // Extrae candidatos y busca match
+    const candidatos = extraerCandidatosSKU(text);
+    for (const cand of candidatos) {
+      const p = buscarProductoPorCodigo(cand, 1);
+      if (p) {
+        onEncontrado(p, '👁 Texto leído');
+        return;
+      }
+    }
+  } catch(e) {
+    console.warn('OCR:', e);
+  } finally {
+    ocrRunning = false;
+  }
+}
+
+function extraerCandidatosSKU(texto) {
+  const t = String(texto || '').toUpperCase();
+  const c = [];
+  // Patrón: XX000000-XX o X00XX00000-X (con o sin espacios)
+  const m1 = t.match(/[A-Z0-9]{3,15}-[A-Z0-9]{1,3}/g);
+  if (m1) c.push(...m1);
+  // Bloques alfanuméricos largos
+  const m2 = t.match(/[A-Z0-9]{7,15}/g);
+  if (m2) c.push(...m2);
+  // Tokens sueltos >= 5
+  t.replace(/[^A-Z0-9\- ]/g, ' ').split(/\s+/).filter(x => x.length >= 5).forEach(x => c.push(x));
+  return [...new Set(c)];
+}
+
+/* ============ Lista pedido / inventario ============ */
 function renderPedido() {
   const tb = document.querySelector('#tablaPedido tbody');
   tb.innerHTML = pedido.map((p, i) => `
@@ -651,16 +662,16 @@ function renderPedido() {
   document.getElementById('totalImp').textContent = '$' + totalImp.toFixed(2);
   document.getElementById('contador').textContent = pedido.length;
 }
-function cambiarCant(i, v) { pedido[i].cantidad = Math.max(1, parseInt(v) || 1); renderPedido(); }
-function eliminar(i) { pedido.splice(i, 1); renderPedido(); }
+function cambiarCant(i, v) { pedido[i].cantidad = Math.max(1, parseInt(v) || 1); renderPedido(); guardarEstado(); }
+function eliminar(i) { pedido.splice(i, 1); renderPedido(); guardarEstado(); }
 function limpiarPedido() {
   if (!pedido.length) return;
   if (confirm('¿Borrar todo ' + (modo === 'pedido' ? 'el pedido' : 'el conteo') + '?')) {
-    pedido = []; renderPedido();
+    pedido = []; renderPedido(); guardarEstado();
   }
 }
 
-/* ---------- Excel ---------- */
+/* ============ Excel ============ */
 function exportarExcel() {
   if (!pedido.length) { alert('La lista está vacía.'); return; }
   const tienda = document.getElementById('tienda').value || 'SAHAGUN';
@@ -682,6 +693,9 @@ function exportarExcel() {
   const prefijo = esPedido ? 'pedido' : 'inventario';
   XLSX.writeFile(wb, `${prefijo}_${tienda}_${fecha}.xlsx`);
 }
+
+/* ============ Inicio ============ */
+cargarEstado();
 </script>
 </body>
 </html>
